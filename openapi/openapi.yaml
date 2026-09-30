@@ -1,0 +1,117 @@
+openapi: 3.0.3
+info:
+  title: Vulnerable Lab API (Aikido DAST target)
+  version: "1.0.0"
+  description: >
+    INTENTIONALLY VULNERABLE API for DAST testing only. Replace {ref} in the
+    server URL with your Supabase project ref before importing into Aikido.
+servers:
+  - url: https://{ref}.supabase.co/functions/v1/api
+    variables:
+      ref:
+        default: your-project-ref
+paths:
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200": { description: OK }
+  /login:
+    post:
+      summary: Login (SQL injection + weak auth)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username: { type: string }
+                password: { type: string }
+              required: [username, password]
+      responses:
+        "200": { description: token issued }
+        "401": { description: invalid credentials }
+  /users:
+    get:
+      summary: List users (no auth, data exposure)
+      responses:
+        "200": { description: user list }
+  /users/{id}:
+    get:
+      summary: Get user by id (BOLA/IDOR + SQLi)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: user }
+    put:
+      summary: Update user (mass assignment)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200": { description: updated user }
+  /admin/config:
+    get:
+      summary: Admin config (broken function-level auth, secret leak)
+      security:
+        - bearerAuth: []
+      responses:
+        "200": { description: config }
+        "403": { description: forbidden }
+  /fetch:
+    get:
+      summary: Fetch a URL (SSRF)
+      parameters:
+        - name: url
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: fetched body }
+  /search:
+    get:
+      summary: Search (reflected XSS)
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: html results }
+  /products:
+    get:
+      summary: List products
+      responses:
+        "200": { description: product list }
+    post:
+      summary: Create product (no auth, SQLi)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                price: { type: number }
+              required: [name, price]
+      responses:
+        "201": { description: created }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer

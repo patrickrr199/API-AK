@@ -1,0 +1,6 @@
+project_id = "vuln-lab-api"
+
+[functions.api]
+# VULN (intentional): JWT verification disabled so the DAST scanner can reach
+# every route without a Supabase anon key. This exposes the function publicly.
+verify_jwt = false

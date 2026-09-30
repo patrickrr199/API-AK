@@ -1,0 +1,18 @@
+# Supabase local
+.branches
+.temp
+supabase/.temp
+
+# Env / secrets — never commit these
+.env
+.env.*
+*.env
+
+# Deno
+.deno
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
