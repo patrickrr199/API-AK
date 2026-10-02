@@ -52,6 +52,30 @@ function parseToken(auth: string | null) {
   }
 }
 
+function buildValidatedUrl(baseUrl: string): string {
+  try {
+    // Minimal path validation
+    if (baseUrl.includes('/../') || /\/%2e%2e\//i.test(baseUrl)) {
+      throw new Error('Invalid path');
+    }
+    
+    const url = new URL(baseUrl);
+    
+    // Protocol + host checks
+    const allowedDomains = ['example.com']; // add your allowed domains here
+    if (!allowedDomains.includes(url.hostname)) {
+      throw new Error('Invalid host');
+    }
+    if (!['http:', 'https:'].includes(url.protocol)) {
+      throw new Error('Invalid protocol');
+    }
+    
+    return url.href;
+  } catch {
+    throw new Error('Invalid URL');
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
 
@@ -134,7 +158,8 @@ Deno.serve(async (req) => {
     if (path === "/fetch" && method === "GET") {
       const target = url.searchParams.get("url") ?? "";
       // VULN: server-side request forgery — fetches arbitrary URLs incl. metadata
-      const upstream = await fetch(target);
+      const validatedUrl = buildValidatedUrl(target);
+      const upstream = await fetch(validatedUrl);
       const text = await upstream.text();
       return json({ url: target, body: text.slice(0, 2000) });
     }
