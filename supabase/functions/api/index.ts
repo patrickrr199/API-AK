@@ -72,8 +72,9 @@ Deno.serve(async (req) => {
       const c = await db();
       // VULN: SQL injection via string concatenation (API8/A03)
       const q = `SELECT id, username, role FROM users
-                 WHERE username = '${username}' AND password = '${password}'`;
-      const r = await c.queryObject(q);
+                 WHERE username = $1 AND password = $2`;
+      const params = [username, password];
+      const r = await c.queryObject(q, params);
       await c.end();
       if (r.rows.length === 0) return json({ error: "invalid credentials" }, 401);
       const u = r.rows[0] as { id: number; username: string; role: string };
@@ -109,11 +110,18 @@ Deno.serve(async (req) => {
       const body = await req.json();
       const c = await db();
       // VULN: mass assignment — client can set ANY column incl. role=admin (API6)
-      const sets = Object.entries(body)
-        .map(([k, v]) => `${k} = '${v}'`)
+      const entries = Object.entries(body);
+      for (const [k] of entries) {
+        if (!/^[a-zA-Z0-9_]+$/.test(k)) throw new Error('Invalid input');
+      }
+      const sets = entries
+        .map(([k], i) => `${k} = $${i + 1}`)
         .join(", ");
-      await c.queryObject(`UPDATE users SET ${sets} WHERE id = ${id}`);
-      const r = await c.queryObject(`SELECT * FROM users WHERE id = ${id}`);
+      const values = entries.map(([, v]) => v);
+      const params = [...values, id];
+      await c.queryObject(`UPDATE users SET ${sets} WHERE id = $${values.length + 1}`, params);
+      const params2 = [id];
+      const r = await c.queryObject(`SELECT * FROM users WHERE id = $1`, params2);
       await c.end();
       return json({ user: r.rows[0] ?? null });
     }
@@ -153,8 +161,10 @@ Deno.serve(async (req) => {
     if (path === "/products" && method === "POST") {
       const { name, price } = await req.json();
       const c = await db();
+      const params = [name, price];
       const r = await c.queryObject(
-        `INSERT INTO products (name, price) VALUES ('${name}', ${price}) RETURNING *`,
+        `INSERT INTO products (name, price) VALUES ($1, $2) RETURNING *`,
+        params,
       );
       await c.end();
       return json({ product: r.rows[0] }, 201);
