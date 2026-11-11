@@ -72,8 +72,8 @@ Deno.serve(async (req) => {
       const c = await db();
       // VULN: SQL injection via string concatenation (API8/A03)
       const q = `SELECT id, username, role FROM users
-                 WHERE username = '${username}' AND password = '${password}'`;
-      const r = await c.queryObject(q);
+                 WHERE username = $1 AND password = $2`;
+      const r = await c.queryObject({ text: q, args: [username, password] });
       await c.end();
       if (r.rows.length === 0) return json({ error: "invalid credentials" }, 401);
       const u = r.rows[0] as { id: number; username: string; role: string };
